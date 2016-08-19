@@ -38,11 +38,11 @@ QUICK = (9093,14363,"quick")
 SPEEDY = (410,1078, "speedy")
 CRYPTIC = (21620,26889, "cryptic")
 
-CROSSWORD_TYPE = [QUICK,SPEEDY,CRYPTIC]
+CROSSWORD_TYPE = [CRYPTIC]
 
 for crossword in CROSSWORD_TYPE:
     crossword_type = crossword[2]
-    for crossword_no in xrange(*crossword[:1]):
+    for crossword_no in xrange(*crossword[:2]):
 
         try:
             url = "https://www.theguardian.com/crosswords/" + crossword_type + "/" + str(crossword_no)
