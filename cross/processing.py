@@ -3,45 +3,45 @@ import json
 import os
 import regex
 
+from cross.crossword import Clue, Crossword
 
-def insert_single_clue_separators(clue):
+def insert_answer_seperators(clue):
 
+    new_clue = clue.copy()
     if len(clue["separatorLocations"]) != 0:
-
-        ans = clue["solution"].lower()
+        answer = clue["solution"].lower()
         full_locations = []
-
         for x in clue["separatorLocations"].items():
-            full_locations += [(x[0],y) for y in x[1]]
+            full_locations.append((x[0], y) for y in x[1])
 
-        for i, (str, loc) in enumerate(full_locations):
-            ans = ans[0:loc + i] + str + ans[loc + i:]
-
+        for i, (insert_string, loc) in enumerate(full_locations):
+            answer = answer[0:loc + i] + insert_string + answer[loc + i:]
     else:
-        ans = clue["solution"].lower()
+        answer = clue["solution"].lower()
 
-    clue["solution"] = ans
-    return clue
+    new_clue["solution"] = answer
+    return new_clue
 
-def insert_separators(crossword):
-    """The scraper format returns solution fields with no separators.
-       To allow non-seq2seq approaches, we insert these in place."""
+def insert_separators(clue_list):
+    """
+    The scraper format returns solution fields with
+    no separators, so we insert these in place.
+    """
     new_entries = []
-    for clue in crossword["entries"]:
+    for clue in clue_list:
         # Split the answer up into it's parts and insert separators.
-        clue = insert_single_clue_separators(clue)
-        new_entries.append(clue)
+        clue_with_ans_seperators = insert_answer_seperators(clue)
+        new_entries.append(clue_with_ans_seperators)
 
-    crossword["entries"] = new_entries
-    return crossword
+    return new_entries
 
-def remove_clue_duplicates(crossword):
+def remove_clue_duplicates(clue_list):
     """Sometimes clues are split over multiple grid entries. In this case,
        one of the clues will simply refer to the other clue, e.g 'See 15 Down'.
        This removes clues which are not the first entry in a group of clues,
        which are always just references to the first clue in the group. """
     deduped_entries = []
-    for clue in crossword["entries"]:
+    for clue in clue_list:
 
         if len(clue["group"]) == 1:
             deduped_entries.append(clue)
@@ -52,16 +52,14 @@ def remove_clue_duplicates(crossword):
                 # Retrieve all the parts of the solution as
                 # they are stored across all parts of the clue.
                 complete_solution = "".join([x["solution"] for x in
-                                             crossword["entries"] if x["group"] == clue["group"]])
+                                             clue_list if x["group"] == clue["group"]])
 
                 clue["solution"] = complete_solution
                 deduped_entries.append(clue)
             else:
                 pass
 
-    crossword["entries"] = deduped_entries
-
-    return crossword
+    return deduped_entries
 
 
 def get_references(clue):
@@ -74,39 +72,35 @@ def get_references(clue):
     clue_minus_length_descriptor = clue["clue"][:last_bracket].strip()
 
     # Agressively finds and removes clues containing "10", "12 Across" etc.
-    regex_matches = regex.findall("([0-9]{1,2})(( [Aa]cross| [Dd]own){0,1})(?=(\W|$))", clue_minus_length_descriptor)
-
+    regex_matches = regex.findall("([0-9]{1,2})(( [Aa]cross| [Dd]own){0,1})(?=(\W|$))",
+                                  clue_minus_length_descriptor)
     return regex_matches
 
-
-
-def remove_referential_clues(crossword):
+def remove_referential_clues(clue_list):
     """Some clues reference other solutions in the grid by number.
        To simplify the clue and remove extraneous context, we
        replace these references with the solution if they occur."""
     new_entries = []
-    for clue in crossword["entries"]:
+    for clue in clue_list:
         clue_references = get_references(clue)
         if len(clue_references) == 0:
             new_entries.append(clue)
 
-    crossword["entries"] = new_entries
-    return crossword
+    return clue_list
 
-def extract_and_save_clues(file_path, save_file):
+def extract_and_save_clues(file_path: str, save_file: str):
 
     for crossword in os.listdir(file_path):
-
         with open(os.path.join(file_path,crossword), "rb") as file:
             crossword = json.load(file)
-
         # Note that the order here is important. Inserting separators must happen before
         # we remove duplicates, as the seperator indicies are based on only the part of
         # the clue which is entered in that grid slot, not the whole solution.
 
-        crossword = remove_clue_duplicates(crossword)
-        crossword = remove_referential_clues(crossword)
-        crossword = insert_separators(crossword)
+        clue_list = crossword["entries"]
+        clue_list = remove_clue_duplicates(clue_list)
+        clue_list = remove_referential_clues(clue_list)
+        clue_list = insert_separators(clue_list)
 
         # Extract id and type to put into every clue.
         id = crossword["number"]

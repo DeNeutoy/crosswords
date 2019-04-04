@@ -1,8 +1,26 @@
 
-from aux import Clue
 
 import json
-class Crossword(object):
+
+class Clue:
+
+    def __init__(self, jsonclue, id):
+
+        self.value = jsonclue["clue"]
+        self.direction = jsonclue["direction"]
+        self.total_length = jsonclue["length"]
+
+        self.separator = jsonclue["separatorLocations"]
+        self.grid_position = (jsonclue["position"]["x"],jsonclue["position"]["y"])
+        self.crossword_id = id
+        self.solution = jsonclue["solution"]
+
+    def __len__(self):
+        return self.total_length
+
+
+
+class Crossword:
 
     def __init__(self, crossword_path):
 
@@ -39,13 +57,4 @@ class Crossword(object):
             clue_strings.append(clue.value)
             solutions.append(ans)
         return clue_strings, solutions
-
-
-class CrypticCrossword(Crossword):
-
-    def init(self, json_crossword):
-        super(CrypticCrossword,self).__init__(json_crossword)
-
-        self.setter = json_crossword["author"]["name"]
-
 
