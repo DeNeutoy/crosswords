@@ -1,8 +1,7 @@
-
 import json
 import os
 import regex
-
+import argparse
 from cross.crossword import Clue, Crossword
 
 def insert_answer_seperators(clue):
@@ -11,8 +10,8 @@ def insert_answer_seperators(clue):
     if len(clue["separatorLocations"]) != 0:
         answer = clue["solution"].lower()
         full_locations = []
-        for x in clue["separatorLocations"].items():
-            full_locations.append((x[0], y) for y in x[1])
+        for sep, locations in clue["separatorLocations"].items():
+            full_locations.extend([(sep, j) for j in locations])
 
         for i, (insert_string, loc) in enumerate(full_locations):
             answer = answer[0:loc + i] + insert_string + answer[loc + i:]
@@ -62,6 +61,29 @@ def remove_clue_duplicates(clue_list):
     return deduped_entries
 
 
+def split_length_descriptor(clue_string: str):
+    try:
+        last_bracket = clue_string.rindex("(")
+        clue_minus_length_descriptor = clue_string[:last_bracket].strip()
+        return clue_minus_length_descriptor
+    except:
+        return clue_string
+
+def remove_length_descriptors(clue_list):
+
+    new_clues = []    
+    for clue in clue_list:
+
+        clue_minus_length_descriptor = split_length_descriptor(clue["clue"])
+
+        new_clue = clue.copy()
+        new_clue["clue"] = clue_minus_length_descriptor
+
+        new_clues.append(new_clue)
+
+    return new_clues
+
+
 def get_references(clue):
     """Return all references to other solutions in the grid from
        a given clue. """
@@ -101,6 +123,7 @@ def extract_and_save_clues(file_path: str, save_file: str):
         clue_list = remove_clue_duplicates(clue_list)
         clue_list = remove_referential_clues(clue_list)
         clue_list = insert_separators(clue_list)
+        clue_list = remove_length_descriptors(clue_list)
 
         # Extract id and type to put into every clue.
         id = crossword["number"]
@@ -108,7 +131,7 @@ def extract_and_save_clues(file_path: str, save_file: str):
 
         with open(save_file, "a+") as file:
 
-            for entry in crossword["entries"]:
+            for entry in clue_list:
                 entry.pop("humanNumber")
                 entry.pop("position")
                 entry.pop("group")
@@ -120,6 +143,9 @@ def extract_and_save_clues(file_path: str, save_file: str):
 if __name__=="__main__":
 
 
-    clue_path = "/Users/markneumann/Documents/Machine_Learning/crosswords/res/clues_refs.txt"
+    parser = argparse.ArgumentParser(description="Process raw clues into annotated formats.")
+    parser.add_argument('--raw', type=str, help="Path to the directory containing raw files.")
+    parser.add_argument('--out', type=str, help="Path to a jsonl output file.")
 
-    extract_and_save_clues("/Users/markneumann/Documents/Machine_Learning/crosswords/res/cryptic/", clue_path)
+    args = parser.parse_args()
+    extract_and_save_clues(args.raw, args.out)
